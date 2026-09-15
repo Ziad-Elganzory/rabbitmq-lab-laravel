@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "/Users/ganzury/.config/herd-lite/bin/php",
+            "args": [
+                "/Users/ganzury/Desktop/Projects/laravel/micro-service-practice/producer/artisan",
+                "boost:mcp"
+            ]
+        }
+    }
+}

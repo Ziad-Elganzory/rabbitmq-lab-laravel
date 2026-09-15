@@ -1,0 +1,6 @@
+CREATE DATABASE IF NOT EXISTS `producer`;
+CREATE DATABASE IF NOT EXISTS `consumer`;
+
+GRANT ALL PRIVILEGES ON `producer`.* TO 'laravel'@'%';
+GRANT ALL PRIVILEGES ON `consumer`.* TO 'laravel'@'%';
+FLUSH PRIVILEGES;
