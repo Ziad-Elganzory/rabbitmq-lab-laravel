@@ -1,78 +1,78 @@
 name: laravel-microservices
 
-x-php: &php
-  build:
-    context: .
-    dockerfile: Dockerfile
-    args:
-      WWWGROUP: ${WWWGROUP:-1000}
-      WWWUSER: ${WWWUSER:-1000}
-  image: laravel-micro:local
-  extra_hosts:
-    - host.docker.internal:host-gateway
-  networks:
-    - app
-  depends_on:
-    mysql:
-      condition: service_healthy
-    redis:
-      condition: service_healthy
-    rabbitmq:
-      condition: service_healthy
-
-x-php-env: &php-env
-  APP_ENV: ${APP_ENV:-local}
-  XDEBUG_MODE: ${XDEBUG_MODE:-off}
-  XDEBUG_CONFIG: ${XDEBUG_CONFIG:-client_host=host.docker.internal}
-  DB_CONNECTION: mysql
-  DB_HOST: mysql
-  DB_PORT: 3306
-  DB_USERNAME: ${DB_USERNAME:-laravel}
-  DB_PASSWORD: ${DB_PASSWORD:-secret}
-  REDIS_CLIENT: phpredis
-  REDIS_HOST: redis
-  REDIS_PORT: 6379
-  RABBITMQ_HOST: rabbitmq
-  RABBITMQ_PORT: 5672
-  RABBITMQ_USER: ${RABBITMQ_USER:-app}
-  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-secret}
-  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
-
 services:
   producer:
-    <<: *php
-    env_file:
-      - ./producer/.env
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: ${WWWGROUP:-1000}
+        WWWUSER: ${WWWUSER:-1000}
+    image: laravel-microservices-producer:local
+    init: true
     volumes:
       - ./producer:/var/www/html
     ports:
-      - ${PRODUCER_PORT:-8000}:8000
-      - ${PRODUCER_VITE_PORT:-5173}:${PRODUCER_VITE_PORT:-5173}
+      - "${PRODUCER_PORT:-8000}:8000"
     environment:
-      <<: *php-env
+      APP_ENV: ${APP_ENV:-local}
       APP_URL: http://localhost:${PRODUCER_PORT:-8000}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_DATABASE: ${PRODUCER_DB_DATABASE:-producer}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-app}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-secret}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
     command: php artisan serve --host=0.0.0.0 --port=8000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   consumer:
-    <<: *php
-    env_file:
-      - ./consumer/.env
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: ${WWWGROUP:-1000}
+        WWWUSER: ${WWWUSER:-1000}
+    image: laravel-microservices-consumer:local
+    init: true
     volumes:
       - ./consumer:/var/www/html
     ports:
-      - ${CONSUMER_PORT:-8001}:8001
-      - ${CONSUMER_VITE_PORT:-5174}:${CONSUMER_VITE_PORT:-5174}
+      - "${CONSUMER_PORT:-8001}:8001"
     environment:
-      <<: *php-env
+      APP_ENV: ${APP_ENV:-local}
       APP_URL: http://localhost:${CONSUMER_PORT:-8001}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_DATABASE: ${CONSUMER_DB_DATABASE:-consumer}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-app}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-secret}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
     command: php artisan serve --host=0.0.0.0 --port=8001
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   mysql:
     image: mysql:8.4
     ports:
-      - ${FORWARD_DB_PORT:-3306}:3306
+      - "${FORWARD_DB_PORT:-3306}:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
       MYSQL_DATABASE: ${PRODUCER_DB_DATABASE:-producer}
@@ -80,70 +80,47 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d
-    networks:
-      - app
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:-secret}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\""]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
-  phpmyadmin:
-    image: phpmyadmin:latest
-    ports:
-      - ${FORWARD_PHPMYADMIN_PORT:-8080}:80
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
-      UPLOAD_LIMIT: 300M
-    networks:
-      - app
-    depends_on:
-      mysql:
-        condition: service_healthy
-
-  redis:
-    image: redis:alpine
-    ports:
-      - ${FORWARD_REDIS_PORT:-6379}:6379
-    volumes:
-      - redis-data:/data
-    networks:
-      - app
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   rabbitmq:
     image: rabbitmq:4-management-alpine
     hostname: rabbitmq
     ports:
-      - ${FORWARD_RABBITMQ_PORT:-5672}:5672
-      - ${FORWARD_RABBITMQ_DASHBOARD_PORT:-15672}:15672
+      - "${FORWARD_RABBITMQ_PORT:-5672}:5672"
+      - "${FORWARD_RABBITMQ_DASHBOARD_PORT:-15672}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-app}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-secret}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
-    networks:
-      - app
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-networks:
-  app:
-    driver: bridge
+  phpmyadmin:
+    image: phpmyadmin:latest
+    profiles:
+      - tools
+    ports:
+      - "${FORWARD_PHPMYADMIN_PORT:-8080}:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+      UPLOAD_LIMIT: 300M
+    depends_on:
+      mysql:
+        condition: service_healthy
 
 volumes:
   mysql-data:
-  redis-data:
   rabbitmq-data:
