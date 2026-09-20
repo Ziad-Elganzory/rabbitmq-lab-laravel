@@ -72,7 +72,29 @@ return [
             'block_for' => null,
             'after_commit' => false,
         ],
+        'rabbitmq' => [
+            'driver' => 'rabbitmq',
+            'queue' => env('RABBITMQ_QUEUE', 'ping.events'),
+            'connection' => 'default',
 
+            'hosts' => [
+                [
+                    'host' => env('RABBITMQ_HOST', 'rabbitmq'),
+                    'port' => env('RABBITMQ_PORT', 5672),
+                    'user' => env('RABBITMQ_USER', 'app'),
+                    'password' => env('RABBITMQ_PASSWORD', 'secret'),
+                    'vhost' => env('RABBITMQ_VHOST', '/'),
+                ],
+            ],
+
+            'options' => [
+                'queue' => [
+                    'quorum' => true,
+                ],
+            ],
+
+            'worker' => env('RABBITMQ_WORKER', 'default'),
+        ],
         'deferred' => [
             'driver' => 'deferred',
         ],
