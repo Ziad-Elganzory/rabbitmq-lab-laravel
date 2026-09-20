@@ -52,11 +52,14 @@ class ConsumePingEvents extends Command
                             throw new RuntimeException('The RabbitMQ message is not a JSON object.');
                         }
 
-                        Log::info('Consumed ping event.', [
+                        $logContext = [
                             'event_id' => $event['id'] ?? null,
                             'event_type' => $event['type'] ?? null,
-                            'payload' => $event['data'] ?? null,
-                        ]);
+                            'message' => 'pong',
+                        ];
+
+                        Log::info('Consumed ping event: pong.', $logContext);
+                        $this->info("Consumed event {$logContext['event_id']}: pong");
 
                         $message->ack();
                     } catch (Throwable $exception) {
